@@ -85,14 +85,28 @@ func (s *AppServer) handleGetLoginQrcode(ctx context.Context) *MCPToolResult {
 		}
 		return now.Add(d).Format("2006-01-02 15:04:05")
 	}()
+	imageBase64 := strings.TrimPrefix(result.Img, "data:image/png;base64,")
+	metadata, err := json.Marshal(map[string]string{
+		"image_base64": imageBase64,
+		"mime_type":    "image/png",
+		"expires_at":   deadline,
+		"timeout":      result.Timeout,
+	})
+	if err != nil {
+		return &MCPToolResult{
+			Content: []MCPContent{{Type: "text", Text: "生成登录扫码图片元数据失败: " + err.Error()}},
+			IsError: true,
+		}
+	}
 
-	// 已登录：文本 + 图片
+	// 未登录：文本元数据 + 图片。元数据便于客户端保存二维码文件。
 	contents := []MCPContent{
 		{Type: "text", Text: "请用小红书 App 在 " + deadline + " 前扫码登录 👇"},
+		{Type: "text", Text: string(metadata)},
 		{
 			Type:     "image",
 			MimeType: "image/png",
-			Data:     strings.TrimPrefix(result.Img, "data:image/png;base64,"),
+			Data:     imageBase64,
 		},
 	}
 	return &MCPToolResult{Content: contents}
